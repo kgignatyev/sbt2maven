@@ -1,9 +1,10 @@
 package org.kgi.sbt.mavenhelper;
 
+import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections.Predicate;
 import org.apache.commons.exec.CommandLine;
 import org.apache.commons.exec.DefaultExecutor;
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.filefilter.IOFileFilter;
 import org.w3c.dom.Document;
 
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -20,37 +21,26 @@ public class Sbt2LocalMaven {
 
     public static void main(String[] args) {
         Sbt2LocalMaven publisher = new Sbt2LocalMaven();
-        publisher.publish();
+        String dir = ".";
+        if( args.length >0){
+            dir = args[0];
+        }
+        publisher.publish(dir);
     }
 
-    private void publish() {
-        File target = new File("target");
-        if( ! target.exists()){
-            throw new RuntimeException("no directory " + target.getAbsolutePath() + " found, run sbt package first!");
-        }
-        Collection<File> pomFiles = FileUtils.listFiles(target, new IOFileFilter() {
-                    @Override
-                    public boolean accept(File file) {
-                        return file.getName().endsWith("pom");
-                    }
-
-                    @Override
-                    public boolean accept(File dir, String name) {
-                        return true;
-                    }
-                }, new IOFileFilter() {
-
-                    @Override
-                    public boolean accept(File file) {
-                        return file.isDirectory() && file.getName().startsWith("scala");//;
-                    }
-
-                    @Override
-                    public boolean accept(File dir, String name) {
-                        return true;
-                    }
-                }
-        );
+    private void publish( String dirToInvestigate ) {
+        File startDir = new File(dirToInvestigate);
+        final int startDirNameLength = startDir.getAbsolutePath().length();
+        Collection<File> pomFileCandidates = FileUtils.listFiles(startDir, new String[]{"pom"},true  ) ;
+        Collection<File> pomFiles = CollectionUtils.select(pomFileCandidates, new Predicate(){
+            @Override
+            public boolean evaluate(Object o) {
+                File f = (File) o;
+                String relativeName = f.getAbsolutePath().substring(startDirNameLength);
+                System.out.println("Investigate::" + relativeName);
+                return relativeName.indexOf("target")!=-1;
+            }
+        });
 
         if( pomFiles.size() == 0){
             throw new RuntimeException("No POM files found, did you rum 'sbt publish-local' ?");
